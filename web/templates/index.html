@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crimson Phoenix — Threat Intelligence Platform</title>
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+<style>
+  :root { --bg:#0d1117; --surface:#161b22; --border:#30363d; --accent:#f85149; --accent2:#58a6ff; --text:#e6edf3; --muted:#8b949e; --safe:#27ae60; --warn:#e67e22; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); padding:0; min-height:100vh; }
+  header { background:var(--surface); border-bottom:1px solid var(--border); padding:1rem 2rem; display:flex; align-items:center; gap:1.5rem; }
+  header h1 { color:var(--accent); font-size:1.4rem; letter-spacing:2px; }
+  header p { color:var(--muted); font-size:0.85rem; }
+  nav a { color:var(--muted); text-decoration:none; margin-left:1.5rem; font-size:0.9rem; }
+  nav a:hover { color:var(--text); }
+  .main { display:grid; grid-template-columns:280px 1fr; min-height:calc(100vh - 60px); }
+  .sidebar { background:var(--surface); border-right:1px solid var(--border); padding:1rem; overflow-y:auto; }
+  .sidebar h2 { font-size:0.75rem; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:0.75rem; }
+  .group-item { padding:0.5rem 0.75rem; border-radius:6px; cursor:pointer; font-size:0.85rem; margin-bottom:2px; transition:background 0.15s; }
+  .group-item:hover { background:rgba(248,81,73,0.1); }
+  .group-item.active { background:rgba(248,81,73,0.15); border-left:3px solid var(--accent); }
+  .group-item .aliases { font-size:0.75rem; color:var(--muted); }
+  .content { padding:1.5rem; overflow-y:auto; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:1.25rem; margin-bottom:1rem; }
+  .card h3 { color:var(--accent2); font-size:0.85rem; text-transform:uppercase; letter-spacing:1px; margin-bottom:1rem; }
+  .severity { display:inline-block; padding:0.25rem 0.75rem; border-radius:4px; font-weight:bold; font-size:0.9rem; }
+  .CRITICAL { background:#c0392b; } .HIGH { background:#e67e22; } .MEDIUM { background:#f1c40f; color:#000; } .LOW { background:#27ae60; }
+  .stat-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:0.75rem; margin-bottom:1rem; }
+  .stat { background:var(--bg); border-radius:6px; padding:0.75rem; text-align:center; }
+  .stat .val { font-size:1.6rem; font-weight:bold; color:var(--accent); }
+  .stat .lbl { font-size:0.75rem; color:var(--muted); }
+  .technique-list { max-height:300px; overflow-y:auto; }
+  .tech-row { display:flex; align-items:flex-start; gap:0.75rem; padding:0.5rem 0; border-bottom:1px solid var(--border); font-size:0.82rem; }
+  .tech-id { color:var(--accent); font-family:monospace; min-width:80px; }
+  .tech-name { font-weight:600; }
+  .tech-tactic { font-size:0.75rem; color:var(--muted); }
+  .detection-grid { display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; }
+  @media(max-width:900px){ .main{grid-template-columns:1fr;} .detection-grid{grid-template-columns:1fr;} }
+  .det-card { background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:0.75rem; font-size:0.82rem; }
+  .det-card h4 { color:var(--accent2); margin-bottom:0.5rem; font-size:0.8rem; }
+  .source-tag { display:inline-block; background:rgba(88,166,255,0.1); border:1px solid var(--accent2); color:var(--accent2); padding:0.15rem 0.4rem; border-radius:3px; font-size:0.7rem; margin:0.1rem; }
+  .placeholder { color:var(--muted); text-align:center; padding:3rem; }
+  .loading { color:var(--muted); text-align:center; padding:2rem; }
+  .search-box { width:100%; padding:0.4rem 0.6rem; background:var(--bg); border:1px solid var(--border); border-radius:4px; color:var(--text); margin-bottom:0.75rem; font-size:0.85rem; }
+  a.ext { color:var(--accent2); text-decoration:none; font-size:0.75rem; }
+  a.ext:hover { text-decoration:underline; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>CRIMSON PHOENIX</h1>
+    <p>APT Campaign Analysis & Blue Team Training Platform</p>
+  </div>
+  <nav style="margin-left:auto">
+    <a href="/">Analysis</a>
+    <a href="/training">Training Scenarios</a>
+  </nav>
+</header>
+
+<div class="main">
+  <aside class="sidebar">
+    <h2>APT Groups</h2>
+    <input class="search-box" type="text" id="group-search" placeholder="Filter groups..." oninput="filterGroups()">
+    <div id="group-list">
+      {% for g in groups %}
+      <div class="group-item" onclick="loadGroup('{{ g.name }}')" id="grp-{{ loop.index }}">
+        <div>{{ g.name }}</div>
+        <div class="aliases">{{ g.aliases[:2]|join(', ') }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </aside>
+
+  <main class="content">
+    <div id="placeholder" class="placeholder">
+      <p style="font-size:1.1rem;margin-bottom:0.5rem;">Select an APT group to analyze</p>
+      <p>Technique mapping, kill-chain coverage, and detection opportunities will appear here.</p>
+    </div>
+    <div id="analysis-panel" style="display:none"></div>
+  </main>
+</div>
+
+<script>
+const groups = {{ groups | tojson }};
+
+function filterGroups() {
+  const q = document.getElementById('group-search').value.toLowerCase();
+  document.querySelectorAll('.group-item').forEach(el => {
+    const text = el.textContent.toLowerCase();
+    el.style.display = text.includes(q) ? '' : 'none';
+  });
+}
+
+async function loadGroup(name) {
+  document.querySelectorAll('.group-item').forEach(el => el.classList.remove('active'));
+  const items = document.querySelectorAll('.group-item');
+  items.forEach(el => { if (el.querySelector('div').textContent === name) el.classList.add('active'); });
+
+  document.getElementById('placeholder').style.display = 'none';
+  const panel = document.getElementById('analysis-panel');
+  panel.style.display = 'block';
+  panel.innerHTML = '<div class="loading">Analyzing ' + name + '...</div>';
+
+  const resp = await fetch('/api/analyze/' + encodeURIComponent(name));
+  const d = await resp.json();
+  if (d.error) { panel.innerHTML = '<div class="loading">Error: ' + d.error + '</div>'; return; }
+  renderAnalysis(panel, d);
+}
+
+function renderAnalysis(container, d) {
+  const g = d.group;
+  const sev = d.severity_score;
+
+  // Tactic coverage bar chart
+  const tacticLabels = d.coverage.map(t => t.label);
+  const tacticCounts = d.coverage.map(t => t.count);
+  const colors = tacticCounts.map(c => c === 0 ? '#30363d' : '#f85149');
+
+  let html = `
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+        <div>
+          <h2 style="font-size:1.3rem;color:var(--accent)">${g.name}</h2>
+          <div style="color:var(--muted);font-size:0.85rem">${g.aliases.join(' · ')}</div>
+        </div>
+        <div style="margin-left:auto;text-align:right">
+          <span class="severity ${sev.level}">${sev.level} — ${sev.score}/10</span>
+          <div style="font-size:0.75rem;color:var(--muted);margin-top:0.25rem">${d.technique_count} techniques mapped</div>
+        </div>
+      </div>
+      <p style="margin-top:0.75rem;font-size:0.85rem;color:var(--muted)">${g.description.substring(0,300)}${g.description.length>300?'…':''}</p>
+      <a class="ext" href="${g.url}" target="_blank">View on MITRE ATT&CK →</a>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat"><div class="val">${d.technique_count}</div><div class="lbl">Techniques</div></div>
+      <div class="stat"><div class="val">${sev.breadth_pct}%</div><div class="lbl">Kill-chain breadth</div></div>
+      <div class="stat"><div class="val">${sev.high_impact_covered.length}</div><div class="lbl">High-impact tactics</div></div>
+      <div class="stat"><div class="val">${d.detection_opportunities.length}</div><div class="lbl">Detection opportunities</div></div>
+    </div>
+
+    <div class="card">
+      <h3>Kill-chain tactic coverage</h3>
+      <div id="tactic-chart" style="height:220px"></div>
+    </div>
+
+    <div class="card">
+      <h3>Techniques (${d.technique_count})</h3>
+      <div class="technique-list">
+        ${d.techniques.slice(0,50).map(t => `
+          <div class="tech-row">
+            <span class="tech-id">${t.technique_id}</span>
+            <div>
+              <div class="tech-name">${t.name}</div>
+              <div class="tech-tactic">${t.tactic.join(', ')}</div>
+            </div>
+            <a class="ext" href="${t.url}" target="_blank" style="margin-left:auto">MITRE →</a>
+          </div>`).join('')}
+        ${d.techniques.length > 50 ? `<div style="text-align:center;color:var(--muted);padding:0.5rem;font-size:0.8rem">… and ${d.techniques.length - 50} more on MITRE ATT&CK</div>` : ''}
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Detection opportunities</h3>
+      <div class="detection-grid">
+        ${d.detection_opportunities.map(det => `
+          <div class="det-card">
+            <h4>${det.label} (${det.technique_count} techniques)</h4>
+            <p style="color:var(--text);margin-bottom:0.5rem">${det.detection_strategy}</p>
+            <div>${det.detection_sources.map(s => `<span class="source-tag">${s}</span>`).join('')}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+  `;
+
+  container.innerHTML = html;
+
+  Plotly.newPlot('tactic-chart', [{
+    type: 'bar', x: tacticLabels, y: tacticCounts,
+    marker: { color: colors },
+    text: tacticCounts.map(c => c > 0 ? c : ''),
+    textposition: 'outside',
+  }], {
+    paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+    margin: { t: 10, b: 80, l: 30, r: 10 },
+    xaxis: { tickfont: { color: '#8b949e', size: 10 }, tickangle: -35, gridcolor: '#30363d' },
+    yaxis: { tickfont: { color: '#8b949e', size: 10 }, gridcolor: '#21262d' },
+    font: { color: '#e6edf3' },
+  }, { responsive: true, displayModeBar: false });
+}
+</script>
+</body>
+</html>

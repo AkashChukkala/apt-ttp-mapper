@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blue Team Training — Crimson Phoenix</title>
+<style>
+  :root { --bg:#0d1117; --surface:#161b22; --border:#30363d; --accent:#f85149; --accent2:#58a6ff; --text:#e6edf3; --muted:#8b949e; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); padding:0; }
+  header { background:var(--surface); border-bottom:1px solid var(--border); padding:1rem 2rem; display:flex; align-items:center; gap:1rem; }
+  header h1 { color:var(--accent); font-size:1.4rem; letter-spacing:2px; }
+  nav a { color:var(--muted); text-decoration:none; margin-left:1.5rem; font-size:0.9rem; }
+  nav a:hover { color:var(--text); }
+  .container { max-width:900px; margin:0 auto; padding:2rem 1rem; }
+  .filters { display:flex; gap:0.5rem; margin-bottom:1.5rem; flex-wrap:wrap; }
+  .filter-btn { padding:0.3rem 0.8rem; border-radius:4px; border:1px solid var(--border); background:transparent; color:var(--muted); cursor:pointer; font-size:0.85rem; }
+  .filter-btn.active, .filter-btn:hover { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .scenario-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:1.25rem; margin-bottom:1rem; cursor:pointer; transition:border-color 0.15s; }
+  .scenario-card:hover { border-color:var(--accent2); }
+  .scenario-card.open { border-color:var(--accent); }
+  .sc-header { display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; }
+  .sc-title { font-weight:700; font-size:1rem; }
+  .badge { display:inline-block; padding:0.15rem 0.5rem; border-radius:3px; font-size:0.75rem; font-weight:600; }
+  .Beginner { background:rgba(39,174,96,0.2); color:#27ae60; border:1px solid #27ae60; }
+  .Intermediate { background:rgba(230,126,34,0.2); color:#e67e22; border:1px solid #e67e22; }
+  .Advanced { background:rgba(192,57,43,0.2); color:#c0392b; border:1px solid #c0392b; }
+  .tactic-tag { background:rgba(88,166,255,0.1); border:1px solid var(--accent2); color:var(--accent2); padding:0.15rem 0.4rem; border-radius:3px; font-size:0.75rem; }
+  .body { display:none; margin-top:1rem; padding-top:1rem; border-top:1px solid var(--border); }
+  .body.visible { display:block; }
+  section { margin-bottom:1rem; }
+  section h4 { color:var(--accent2); font-size:0.8rem; text-transform:uppercase; letter-spacing:1px; margin-bottom:0.5rem; }
+  .observable { background:var(--bg); border-left:3px solid var(--accent); padding:0.4rem 0.75rem; margin-bottom:0.3rem; font-family:monospace; font-size:0.8rem; border-radius:0 4px 4px 0; }
+  .qa-item { margin-bottom:0.75rem; }
+  .question { font-weight:600; font-size:0.9rem; margin-bottom:0.25rem; }
+  .answer { background:rgba(39,174,96,0.07); border:1px solid rgba(39,174,96,0.3); border-radius:4px; padding:0.5rem 0.75rem; font-size:0.85rem; display:none; }
+  .answer.visible { display:block; }
+  .show-btn { background:transparent; border:1px solid var(--border); color:var(--muted); padding:0.2rem 0.6rem; border-radius:4px; cursor:pointer; font-size:0.75rem; margin-top:0.25rem; }
+  .show-btn:hover { border-color:var(--accent2); color:var(--accent2); }
+  .mitigation { background:var(--bg); border-left:3px solid var(--accent2); padding:0.4rem 0.75rem; margin-bottom:0.3rem; font-size:0.85rem; border-radius:0 4px 4px 0; }
+  .apt-label { color:var(--muted); font-size:0.8rem; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>CRIMSON PHOENIX</h1>
+    <p style="color:var(--muted);font-size:0.85rem">Blue Team Training Scenarios</p>
+  </div>
+  <nav style="margin-left:auto">
+    <a href="/">Analysis</a>
+    <a href="/training">Training Scenarios</a>
+  </nav>
+</header>
+
+<div class="container">
+  <div class="filters">
+    <button class="filter-btn {% if not difficulty %}active{% endif %}" onclick="location.href='/training'">All</button>
+    <button class="filter-btn {% if difficulty=='beginner' %}active{% endif %}" onclick="location.href='/training?difficulty=beginner'">Beginner</button>
+    <button class="filter-btn {% if difficulty=='intermediate' %}active{% endif %}" onclick="location.href='/training?difficulty=intermediate'">Intermediate</button>
+    <button class="filter-btn {% if difficulty=='advanced' %}active{% endif %}" onclick="location.href='/training?difficulty=advanced'">Advanced</button>
+  </div>
+
+  {% if not scenarios %}
+  <p style="color:var(--muted)">No scenarios found for this filter.</p>
+  {% endif %}
+
+  {% for s in scenarios %}
+  <div class="scenario-card" id="card-{{ s.id }}" onclick="toggleScenario('{{ s.id }}')">
+    <div class="sc-header">
+      <span class="badge {{ s.difficulty }}">{{ s.difficulty }}</span>
+      <span class="sc-title">{{ s.title }}</span>
+      <span class="apt-label">— {{ s.apt_group }}</span>
+      <span class="tactic-tag" style="margin-left:auto">{{ s.technique_id }}</span>
+    </div>
+
+    <div class="body" id="body-{{ s.id }}">
+      <p style="margin-bottom:1rem;font-size:0.9rem">{{ s.scenario_description }}</p>
+
+      <section>
+        <h4>Observable indicators</h4>
+        {% for obs in s.observables %}
+        <div class="observable">{{ obs }}</div>
+        {% endfor %}
+      </section>
+
+      <section>
+        <h4>Analysis questions & answers</h4>
+        {% for i in range(s.questions|length) %}
+        <div class="qa-item">
+          <div class="question">{{ loop.index }}. {{ s.questions[i] }}</div>
+          <button class="show-btn" onclick="event.stopPropagation();toggleAnswer('ans-{{ s.id }}-{{ i }}',this)">Show answer</button>
+          <div class="answer" id="ans-{{ s.id }}-{{ i }}">{{ s.answers[i] }}</div>
+        </div>
+        {% endfor %}
+      </section>
+
+      <section>
+        <h4>Mitigations & defensive actions</h4>
+        {% for m in s.mitigations %}
+        <div class="mitigation">{{ m }}</div>
+        {% endfor %}
+      </section>
+
+      <p style="margin-top:0.5rem">
+        <a href="https://attack.mitre.org/techniques/{{ s.technique_id.replace('.','/')}}/" target="_blank"
+           style="color:var(--accent2);font-size:0.8rem;text-decoration:none" onclick="event.stopPropagation()">
+          View {{ s.technique_id }} on MITRE ATT&CK →
+        </a>
+      </p>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<script>
+function toggleScenario(id) {
+  const body = document.getElementById('body-' + id);
+  const card = document.getElementById('card-' + id);
+  const open = body.classList.toggle('visible');
+  card.classList.toggle('open', open);
+}
+function toggleAnswer(id, btn) {
+  const el = document.getElementById(id);
+  const show = el.classList.toggle('visible');
+  btn.textContent = show ? 'Hide answer' : 'Show answer';
+}
+</script>
+</body>
+</html>
