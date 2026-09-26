@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 """
-Crimson Phoenix — APT Campaign Analysis & Blue Team Training Platform
-CLI interface.
+apt-ttp-mapper — ATT&CK TTP mapping and blue team training tool.
 
 Usage:
-    python phoenix.py groups                      # List all ATT&CK groups
-    python phoenix.py analyze "APT29"             # Analyze a group's TTPs
-    python phoenix.py compare "APT29" "APT28"     # Compare two groups
-    python phoenix.py scenarios                   # List training scenarios
-    python phoenix.py scenario sc-001             # Show a specific scenario
-    python phoenix.py web                         # Start the web dashboard
+    python ttp_mapper.py groups                      # List all ATT&CK groups
+    python ttp_mapper.py analyze "APT29"             # Analyze a group's TTPs
+    python ttp_mapper.py compare "APT29" "APT28"     # Compare two groups
+    python ttp_mapper.py scenarios                   # List training scenarios
+    python ttp_mapper.py scenario sc-001             # Show a specific scenario
+    python ttp_mapper.py web                         # Start the web dashboard
 """
 
 import argparse
@@ -133,13 +132,13 @@ def cmd_scenario(args):
 
 def cmd_web(_args):
     import subprocess
-    print("Starting Crimson Phoenix web dashboard at http://localhost:5002")
+    print("Starting apt-ttp-mapper web dashboard at http://localhost:5002")
     subprocess.run([sys.executable, "web/app.py"])
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Crimson Phoenix — APT Campaign Analysis & Blue Team Training"
+        description="apt-ttp-mapper — map threat group TTPs via MITRE ATT&CK"
     )
     parser.add_argument("-v", "--verbose", action="store_true")
     sub = parser.add_subparsers(dest="command", required=True)

@@ -1,6 +1,6 @@
 """
-Crimson Phoenix — Flask web dashboard
-APT campaign analysis and blue team training interface.
+apt-ttp-mapper — Flask web dashboard
+ATT&CK TTP mapping and blue team training interface.
 """
 
 import sys
@@ -98,7 +98,7 @@ def api_scenario(scenario_id: str):
 
 @app.route("/health")
 def health():
-    return jsonify({"status": "ok", "service": "CrimsonPhoenix"})
+    return jsonify({"status": "ok", "service": "apt-ttp-mapper"})
 
 
 if __name__ == "__main__":

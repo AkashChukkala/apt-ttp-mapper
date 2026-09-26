@@ -1,9 +1,9 @@
-# attack-ttp-mapper
+# apt-ttp-mapper
 
 A command-line tool for mapping MITRE ATT&CK threat group TTPs, comparing
 actor overlap, and running structured blue team detection exercises.
 
-**ATT&CK version:** 16.1  
+**ATT&CK version:** 19.2  
 All group and technique data is sourced from [MITRE ATT&CK](https://attack.mitre.org/) (CC BY 4.0).
 
 ## Features
@@ -29,19 +29,19 @@ To force a re-download, delete `data/enterprise_attck.json`.
 ### CLI
 
 ```bash
-python phoenix.py groups                          # List all ATT&CK threat groups
-python phoenix.py analyze "APT29"                 # Full TTP analysis + detection guidance
-python phoenix.py analyze "Lazarus Group" --json  # Machine-readable output
-python phoenix.py compare "APT29" "APT28"         # Compare TTP overlap
-python phoenix.py scenarios                       # List training scenarios
-python phoenix.py scenario sc-001                 # Show scenario with Q&A
-python phoenix.py web                             # Launch web dashboard
+python ttp_mapper.py groups                          # List all ATT&CK threat groups
+python ttp_mapper.py analyze "APT29"                 # Full TTP analysis + detection guidance
+python ttp_mapper.py analyze "Lazarus Group" --json  # Machine-readable output
+python ttp_mapper.py compare "APT29" "APT28"         # Compare TTP overlap
+python ttp_mapper.py scenarios                       # List training scenarios
+python ttp_mapper.py scenario sc-001                 # Show scenario with Q&A
+python ttp_mapper.py web                             # Launch web dashboard
 ```
 
 ### Sample output
 
 ```
-$ python phoenix.py analyze "APT29"
+$ python ttp_mapper.py analyze "APT29"
 
 Group: APT29 (Cozy Bear / NOBELIUM)
 Techniques documented: 195
@@ -83,7 +83,7 @@ fast connection). Subsequent runs are fast.
 ## Project structure
 
 ```
-attack-ttp-mapper/
+apt-ttp-mapper/
 ├── core/
 │   ├── attck_client.py          # MITRE ATT&CK API wrapper
 │   ├── campaign_analyzer.py     # TTP mapping, coverage, detection guidance
@@ -93,7 +93,7 @@ attack-ttp-mapper/
 ├── web/
 │   ├── app.py                   # Flask dashboard (port 5002)
 │   └── templates/               # index.html (analysis), training.html (scenarios)
-├── phoenix.py                   # CLI entry point
+├── ttp_mapper.py                # CLI entry point
 ├── requirements.txt             # Exact pinned versions (pip freeze)
 └── README.md
 ```
