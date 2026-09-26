@@ -38,7 +38,7 @@ SCENARIOS: list[TrainingScenario] = [
         technique_name="Phishing: Spearphishing Attachment",
         scenario_description=(
             "Your email gateway alerts on an inbound message to a finance employee. "
-            "The email impersonates a vendor and contains a .docm attachment. "
+            "The email impersonates a vendor and contains a .docm attachment (macro-enabled Word document). "
             "The user opens the file. Shortly after, WinWord.exe spawns cmd.exe, "
             "which connects to an external IP on port 443."
         ),
