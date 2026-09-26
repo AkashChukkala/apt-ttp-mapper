@@ -10,7 +10,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-ATTCK_VERSION = "16.1"
+ATTCK_VERSION = "19.2"
 CACHE_DIR = Path(__file__).parent.parent / "data"
 ATTCK_CACHE = CACHE_DIR / "enterprise_attck.json"
 
@@ -97,8 +97,12 @@ class AttckClient:
                 url = next((r["url"] for r in ext if r.get("source_name") == "mitre-attack"), "")
                 # rel is {"object": technique, "relationships": [stix_rel, ...]};
                 # group-specific procedure text is in the relationship objects.
+                # Join all descriptions — a technique can have multiple relationships
+                # (e.g., used in different campaigns) and [0] crashes on an empty list.
                 rels = rel.get("relationships", [])
-                raw_use = rels[0].get("description", "") if rels else ""
+                raw_use = " ".join(
+                    r.get("description", "") for r in rels if r.get("description")
+                )
                 use = re.sub(r'\s*\(Citation:[^)]+\)', '', raw_use).strip()
                 result.append({
                     "technique_id": tid,
