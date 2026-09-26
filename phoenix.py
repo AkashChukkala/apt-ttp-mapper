@@ -26,9 +26,9 @@ def setup_logging(verbose: bool = False):
 
 
 def cmd_groups(_args):
-    from core.attck_client import AttckClient, FALLBACK_GROUPS
+    from core.attck_client import AttckClient
     client = AttckClient()
-    groups = client.get_all_groups() or FALLBACK_GROUPS
+    groups = client.get_all_groups()
     print(f"\n{'Name':<25} {'Aliases'}")
     print("-" * 70)
     for g in groups:
@@ -47,18 +47,28 @@ def cmd_analyze(args):
         sys.exit(1)
 
     g = result["group"]
-    sev = result["severity_score"]
+    cov = result["tactic_coverage_pct"]
     print(f"\n{'='*65}")
     print(f"  {g['name']}  ({', '.join(g.get('aliases', [])[:2])})")
     print(f"{'='*65}")
-    print(f"  Severity    : {sev['level']} ({sev['score']}/10)")
     print(f"  Techniques  : {result['technique_count']}")
-    print(f"  Kill-chain  : {sev['breadth_pct']}% breadth")
-    print(f"\n  Tactic coverage:")
+    print(f"  Tactic coverage: {cov['coverage_pct']}%  ({cov['covered_tactics']}/{cov['total_tactics']} tactics)")
+    print(f"\n  Tactic breakdown:")
     for t in result["coverage"]:
         bar = "█" * t["count"] if t["count"] else "·"
-        print(f"    {t['label']:<30} {t['count']:>3}  {bar[:20]}")
-    print(f"\n  Detection opportunities: {len(result['detection_opportunities'])} tactics with guidance")
+        print(f"    {t['label']:<32} {t['count']:>3}  {bar[:20]}")
+
+    # Sample procedure text (the 'use' field, populated from relationship descriptions)
+    with_use = [t for t in result["techniques"] if t.get("use")]
+    if with_use:
+        print(f"\n  Sample procedures ({len(with_use)} techniques have group-specific text):")
+        for t in with_use[:5]:
+            preview = t["use"][:110].rstrip()
+            suffix = "…" if len(t["use"]) > 110 else ""
+            print(f"    {t['technique_id']}  {t['name']}")
+            print(f"      {preview}{suffix}")
+
+    print(f"\n  Detection guidance: {len(result['detection_opportunities'])} tactics")
     print()
 
     if args.json:

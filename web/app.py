@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from flask import Flask, render_template, request, jsonify
 
 from core.campaign_analyzer import CampaignAnalyzer
-from core.attck_client import AttckClient, FALLBACK_GROUPS
+from core.attck_client import AttckClient
 from core.training_scenarios import get_all_scenarios, get_scenario, get_scenarios_by_difficulty
 
 app = Flask(__name__)
@@ -39,7 +39,7 @@ def get_client():
 
 @app.route("/")
 def index():
-    groups = get_client().get_all_groups() or FALLBACK_GROUPS
+    groups = get_client().get_all_groups()
     scenarios = get_all_scenarios()
     return render_template("index.html", groups=groups, scenarios=scenarios)
 
@@ -60,7 +60,7 @@ def training():
 
 @app.route("/api/groups")
 def api_groups():
-    return jsonify(get_client().get_all_groups() or FALLBACK_GROUPS)
+    return jsonify(get_client().get_all_groups())
 
 
 @app.route("/api/analyze/<group_name>")

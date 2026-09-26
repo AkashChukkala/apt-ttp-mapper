@@ -111,7 +111,7 @@ async function loadGroup(name) {
 
 function renderAnalysis(container, d) {
   const g = d.group;
-  const sev = d.severity_score;
+  const cov = d.tactic_coverage_pct;
 
   // Tactic coverage bar chart
   const tacticLabels = d.coverage.map(t => t.label);
@@ -126,8 +126,8 @@ function renderAnalysis(container, d) {
           <div style="color:var(--muted);font-size:0.85rem">${g.aliases.join(' · ')}</div>
         </div>
         <div style="margin-left:auto;text-align:right">
-          <span class="severity ${sev.level}">${sev.level} — ${sev.score}/10</span>
-          <div style="font-size:0.75rem;color:var(--muted);margin-top:0.25rem">${d.technique_count} techniques mapped</div>
+          <span style="font-size:1rem;font-weight:bold;color:var(--accent2)">${cov.coverage_pct}% tactic coverage</span>
+          <div style="font-size:0.75rem;color:var(--muted);margin-top:0.25rem">${d.technique_count} techniques · ${cov.covered_tactics}/${cov.total_tactics} tactics documented</div>
         </div>
       </div>
       <p style="margin-top:0.75rem;font-size:0.85rem;color:var(--muted)">${g.description.substring(0,300)}${g.description.length>300?'…':''}</p>
@@ -136,8 +136,8 @@ function renderAnalysis(container, d) {
 
     <div class="stat-grid">
       <div class="stat"><div class="val">${d.technique_count}</div><div class="lbl">Techniques</div></div>
-      <div class="stat"><div class="val">${sev.breadth_pct}%</div><div class="lbl">Kill-chain breadth</div></div>
-      <div class="stat"><div class="val">${sev.high_impact_covered.length}</div><div class="lbl">High-impact tactics</div></div>
+      <div class="stat"><div class="val">${cov.coverage_pct}%</div><div class="lbl">Tactic coverage</div></div>
+      <div class="stat"><div class="val">${cov.covered_tactics}</div><div class="lbl">Tactics documented</div></div>
       <div class="stat"><div class="val">${d.detection_opportunities.length}</div><div class="lbl">Detection opportunities</div></div>
     </div>
 
@@ -152,11 +152,12 @@ function renderAnalysis(container, d) {
         ${d.techniques.slice(0,50).map(t => `
           <div class="tech-row">
             <span class="tech-id">${t.technique_id}</span>
-            <div>
+            <div style="flex:1;min-width:0">
               <div class="tech-name">${t.name}</div>
               <div class="tech-tactic">${t.tactic.join(', ')}</div>
+              ${t.use ? `<div style="font-size:0.78rem;color:var(--muted);margin-top:0.2rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${t.use.replace(/"/g,'&quot;')}">${t.use.substring(0,120)}${t.use.length>120?'…':''}</div>` : ''}
             </div>
-            <a class="ext" href="${t.url}" target="_blank" style="margin-left:auto">MITRE →</a>
+            <a class="ext" href="${t.url}" target="_blank" style="margin-left:0.5rem;white-space:nowrap">MITRE →</a>
           </div>`).join('')}
         ${d.techniques.length > 50 ? `<div style="text-align:center;color:var(--muted);padding:0.5rem;font-size:0.8rem">… and ${d.techniques.length - 50} more on MITRE ATT&CK</div>` : ''}
       </div>
