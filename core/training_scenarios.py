@@ -38,13 +38,13 @@ SCENARIOS: list[TrainingScenario] = [
         technique_name="Phishing: Spearphishing Attachment",
         scenario_description=(
             "Your email gateway alerts on an inbound message to a finance employee. "
-            "The email impersonates a vendor and contains a .docx attachment. "
+            "The email impersonates a vendor and contains a .docm attachment. "
             "The user opens the file. Shortly after, WinWord.exe spawns cmd.exe, "
             "which connects to an external IP on port 443."
         ),
         observables=[
             "Email from external domain registered 3 days ago",
-            "Attachment: Invoice_Q4.docx (contains macros)",
+            "Attachment: Invoice_Q4.docm (macro-enabled Word document)",
             "Process tree: OUTLOOK.EXE → WINWORD.EXE → CMD.EXE → powershell.exe -enc <base64>",
             "Outbound connection to 185.220.x.x:443 (TOR exit node)",
             "Sysmon Event ID 1: powershell.exe with encoded command",
