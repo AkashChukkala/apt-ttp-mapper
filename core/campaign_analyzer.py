@@ -11,8 +11,8 @@ from .attck_client import AttckClient
 
 logger = logging.getLogger(__name__)
 
-# Kill-chain phase display order
-TACTIC_ORDER = [
+# Fallback kill-chain phase order used when the matrix cannot be read.
+_TACTIC_ORDER_FALLBACK = [
     "reconnaissance", "resource-development", "initial-access",
     "execution", "persistence", "privilege-escalation",
     "defense-evasion", "credential-access", "discovery",
@@ -38,9 +38,32 @@ TACTIC_LABELS = {
 }
 
 
+def _tactic_order_from_matrix(db) -> list[str]:
+    """
+    Read tactic order directly from the ATT&CK matrix object in the STIX bundle.
+    Falls back to the hardcoded list if the matrix cannot be parsed, so future
+    ATT&CK changes can't silently break the sort order.
+    """
+    try:
+        from stix2 import Filter
+        matrices = db.src.query([Filter("type", "=", "x-mitre-matrix")])
+        if not matrices:
+            return _TACTIC_ORDER_FALLBACK
+        matrix = matrices[0]
+        tactic_refs = list(matrix.get("tactic_refs", []))
+        tactics = db.src.query([Filter("type", "=", "x-mitre-tactic")])
+        id_to_shortname = {t["id"]: t.get("x_mitre_shortname", "") for t in tactics}
+        order = [id_to_shortname[ref] for ref in tactic_refs if ref in id_to_shortname]
+        return order if order else _TACTIC_ORDER_FALLBACK
+    except Exception as exc:
+        logger.warning("Could not read tactic order from matrix (%s); using fallback.", exc)
+        return _TACTIC_ORDER_FALLBACK
+
+
 class CampaignAnalyzer:
     def __init__(self):
         self.client = AttckClient()
+        self.tactic_order = _tactic_order_from_matrix(self.client._db)
 
     def analyze_group(self, group_name: str) -> dict:
         """
@@ -58,18 +81,18 @@ class CampaignAnalyzer:
         phase_map = self._map_to_phases(techniques)
         coverage = self._tactic_coverage(phase_map)
         detection_ops = self._detection_opportunities(phase_map)
-        severity = self._severity_score(phase_map)
+        tactic_coverage_pct = self._tactic_coverage_pct(phase_map)
 
         return {
             "group": group,
             "technique_count": len(techniques),
             "techniques": techniques,
             "phase_map": phase_map,
-            "tactic_order": TACTIC_ORDER,
+            "tactic_order": self.tactic_order,
             "tactic_labels": TACTIC_LABELS,
             "coverage": coverage,
             "detection_opportunities": detection_ops,
-            "severity_score": severity,
+            "tactic_coverage_pct": tactic_coverage_pct,
         }
 
     def compare_groups(self, group_names: list[str]) -> dict:
@@ -119,13 +142,13 @@ class CampaignAnalyzer:
                 "label": TACTIC_LABELS.get(t, t.replace("-", " ").title()),
                 "count": len(phase_map.get(t, [])),
             }
-            for t in TACTIC_ORDER
+            for t in self.tactic_order
         ]
 
     def _detection_opportunities(self, phase_map: dict) -> list[dict]:
         """
         Map each tactic to high-value detection data sources and strategies.
-        Grounded in MITRE ATT&CK data sources and D3FEND mappings.
+        Guidance is per tactic, sourced from MITRE ATT&CK data sources.
         """
         DETECTION_MAP = {
             "initial-access":        {"sources": ["Email gateway logs", "Web proxy logs", "Endpoint telemetry"], "strategy": "Monitor for spearphishing attachments, unusual external connections, and drive-by download indicators."},
@@ -151,27 +174,17 @@ class CampaignAnalyzer:
                 "detection_sources": det["sources"],
                 "detection_strategy": det["strategy"],
             })
-        return sorted(result, key=lambda x: TACTIC_ORDER.index(x["tactic"]) if x["tactic"] in TACTIC_ORDER else 99)
+        return sorted(result, key=lambda x: self.tactic_order.index(x["tactic"]) if x["tactic"] in self.tactic_order else 99)
 
-    def _severity_score(self, phase_map: dict) -> dict:
-        """Score overall campaign severity based on tactic coverage."""
-        HIGH_IMPACT_TACTICS = {"impact", "exfiltration", "credential-access", "lateral-movement"}
-        covered = set(phase_map.keys())
-        high_impact_covered = covered & HIGH_IMPACT_TACTICS
-        breadth = len(covered) / len(TACTIC_ORDER)
-        impact = len(high_impact_covered) / len(HIGH_IMPACT_TACTICS)
-        score = round((breadth * 0.4 + impact * 0.6) * 10, 1)
-        if score >= 7:
-            level = "CRITICAL"
-        elif score >= 5:
-            level = "HIGH"
-        elif score >= 3:
-            level = "MEDIUM"
-        else:
-            level = "LOW"
+    def _tactic_coverage_pct(self, phase_map: dict) -> dict:
+        """Documented tactic coverage (%) — what fraction of ATT&CK tactics MITRE has
+        documented at least one technique for this group. Reflects documentation
+        depth, not threat severity."""
+        total = len(self.tactic_order)
+        covered = sum(1 for t in self.tactic_order if phase_map.get(t))
+        pct = round(covered / total * 100) if total else 0
         return {
-            "score": score,
-            "level": level,
-            "breadth_pct": round(breadth * 100),
-            "high_impact_covered": sorted(high_impact_covered),
+            "covered_tactics": covered,
+            "total_tactics": total,
+            "coverage_pct": pct,
         }
