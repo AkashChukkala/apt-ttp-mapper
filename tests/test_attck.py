@@ -50,6 +50,16 @@ def test_tactic_order_from_matrix_matches_analyzer(client, analyzer):
     assert order == analyzer.tactic_order
 
 
+def test_v19_tactic_split_in_labels(analyzer):
+    """v19.0 split tactics must have display labels so the template never shows a raw slug."""
+    from core.campaign_analyzer import TACTIC_LABELS
+    for tactic in analyzer.tactic_order:
+        assert tactic in TACTIC_LABELS, (
+            f"Tactic '{tactic}' is in the live data but has no entry in TACTIC_LABELS. "
+            "Add it so the dashboard doesn't show raw slugs."
+        )
+
+
 # ---------------------------------------------------------------------------
 # APT29 procedure text is non-empty
 # ---------------------------------------------------------------------------

@@ -11,15 +11,10 @@ from .attck_client import AttckClient
 
 logger = logging.getLogger(__name__)
 
-# Fallback kill-chain phase order used when the matrix cannot be read.
-_TACTIC_ORDER_FALLBACK = [
-    "reconnaissance", "resource-development", "initial-access",
-    "execution", "persistence", "privilege-escalation",
-    "defense-evasion", "credential-access", "discovery",
-    "lateral-movement", "collection", "command-and-control",
-    "exfiltration", "impact",
-]
-
+# Display labels for ATT&CK tactic shortnames.
+# Includes both v16.x "defense-evasion" and the v19.0 split ("stealth",
+# "defense-impairment") so the template renders correctly regardless of
+# which version is cached.
 TACTIC_LABELS = {
     "reconnaissance": "Reconnaissance",
     "resource-development": "Resource Development",
@@ -27,7 +22,9 @@ TACTIC_LABELS = {
     "execution": "Execution",
     "persistence": "Persistence",
     "privilege-escalation": "Privilege Escalation",
-    "defense-evasion": "Defense Evasion",
+    "defense-evasion": "Defense Evasion",   # pre-v19.0
+    "stealth": "Stealth",                   # v19.0+
+    "defense-impairment": "Defense Impairment",  # v19.0+
     "credential-access": "Credential Access",
     "discovery": "Discovery",
     "lateral-movement": "Lateral Movement",
@@ -41,23 +38,29 @@ TACTIC_LABELS = {
 def _tactic_order_from_matrix(db) -> list[str]:
     """
     Read tactic order directly from the ATT&CK matrix object in the STIX bundle.
-    Falls back to the hardcoded list if the matrix cannot be parsed, so future
-    ATT&CK changes can't silently break the sort order.
+    Raises RuntimeError if the matrix cannot be parsed — silent fallback to a
+    hardcoded list masks exactly the kind of version-mismatch bug this fixes.
     """
-    try:
-        from stix2 import Filter
-        matrices = db.src.query([Filter("type", "=", "x-mitre-matrix")])
-        if not matrices:
-            return _TACTIC_ORDER_FALLBACK
-        matrix = matrices[0]
-        tactic_refs = list(matrix.get("tactic_refs", []))
-        tactics = db.src.query([Filter("type", "=", "x-mitre-tactic")])
-        id_to_shortname = {t["id"]: t.get("x_mitre_shortname", "") for t in tactics}
-        order = [id_to_shortname[ref] for ref in tactic_refs if ref in id_to_shortname]
-        return order if order else _TACTIC_ORDER_FALLBACK
-    except Exception as exc:
-        logger.warning("Could not read tactic order from matrix (%s); using fallback.", exc)
-        return _TACTIC_ORDER_FALLBACK
+    from stix2 import Filter
+    matrices = db.src.query([Filter("type", "=", "x-mitre-matrix")])
+    if not matrices:
+        raise RuntimeError(
+            "No x-mitre-matrix object found in ATT&CK STIX data. "
+            "Delete data/enterprise_attck.json and re-run to download a fresh copy."
+        )
+    matrix = matrices[0]
+    tactic_refs = list(matrix.get("tactic_refs", []))
+    if not tactic_refs:
+        raise RuntimeError("ATT&CK matrix object has no tactic_refs.")
+    tactics = db.src.query([Filter("type", "=", "x-mitre-tactic")])
+    id_to_shortname = {t["id"]: t.get("x_mitre_shortname", "") for t in tactics}
+    order = [id_to_shortname[ref] for ref in tactic_refs if ref in id_to_shortname]
+    if not order:
+        raise RuntimeError(
+            "Could not map tactic_refs to shortnames. "
+            "The STIX data may be corrupt — delete the cache and re-download."
+        )
+    return order
 
 
 class CampaignAnalyzer:
@@ -155,7 +158,11 @@ class CampaignAnalyzer:
             "execution":             {"sources": ["Process creation logs (Sysmon 1)", "Script block logging", "Command-line auditing"], "strategy": "Alert on LOLBin abuse (mshta, wscript, certutil), encoded PowerShell, and unusual parent-child process chains."},
             "persistence":           {"sources": ["Registry auditing", "Scheduled task logs", "Service creation events (7045)"], "strategy": "Baseline autorun locations; alert on new run keys, services, and scheduled tasks created by non-admin processes."},
             "privilege-escalation":  {"sources": ["Security event logs (4672, 4673)", "Sysmon process access"], "strategy": "Monitor token manipulation, UAC bypass patterns, and named pipe impersonation."},
-            "defense-evasion":       {"sources": ["Sysmon logs", "AV/EDR telemetry", "File integrity monitoring"], "strategy": "Detect timestomping, AMSI bypass strings, process hollowing (unusual memory allocations), and signed binary proxy execution."},
+            # v16.x combined tactic — kept for caches that pre-date v19.0
+            "defense-evasion":       {"sources": ["Sysmon logs", "AV/EDR telemetry", "File integrity monitoring"], "strategy": "Detect timestomping, process hollowing (unusual memory allocations), and signed binary proxy execution."},
+            # v19.0 split: Defense Evasion → Stealth + Defense Impairment
+            "stealth":               {"sources": ["Sysmon logs", "File integrity monitoring", "EDR telemetry"], "strategy": "Detect process masquerading (binaries named to mimic system processes), timestomping, process hollowing, and signed binary proxy execution."},
+            "defense-impairment":    {"sources": ["AV/EDR telemetry", "Windows Event Log (7045, 4657)", "Endpoint configuration monitoring"], "strategy": "Alert on AMSI bypass strings, security tool termination, event log clearing (EID 1102/104), and registry changes that disable security products."},
             "credential-access":     {"sources": ["LSASS access events (Sysmon 10)", "4624/4625 logon events", "SAM/NTDS auditing"], "strategy": "Alert on lsass.exe memory reads from non-system processes, unusual Kerberoasting activity, and credential dumping tools."},
             "discovery":             {"sources": ["Process creation", "Network connections", "Active Directory query logs"], "strategy": "High-volume enumeration of AD objects, net commands, and LDAP queries from non-admin workstations."},
             "lateral-movement":      {"sources": ["4648 explicit logon events", "SMB/RDP logs", "WMI activity logs"], "strategy": "Alert on pass-the-hash patterns, unusual RDP from workstation-to-workstation, and WMI remote execution."},
