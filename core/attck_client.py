@@ -15,7 +15,7 @@ CACHE_DIR = Path(__file__).parent.parent / "data"
 ATTCK_CACHE = CACHE_DIR / "enterprise_attck.json"
 
 _ATTCK_URL = (
-    "https://raw.githubusercontent.com/mitre-attack/attack-stix-data/main"
+    "https://raw.githubusercontent.com/mitre-attack/attack-stix-data/master"
     f"/enterprise-attack/enterprise-attack-{ATTCK_VERSION}.json"
 )
 
